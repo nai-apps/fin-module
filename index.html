@@ -1,0 +1,380 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAI_Centroid v2.0 — Авиагоризонт и Матрица Баланса</title>
+    <style>
+        body { background-color: #0E0E0E; color: #D5D5D5; font-family: 'Courier New', Courier, monospace; padding: 15px; max-width: 900px; margin: 0 auto; user-select: none; }
+        h1, h2 { color: #38bdf8; border-bottom: 1px solid #222; padding-bottom: 8px; margin-bottom: 5px; font-size: 18px; }
+        .subtitle { color: #666; font-size: 12px; margin-bottom: 18px; }
+        .layout-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+        .instruments-column { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .canvas-box { background-color: #141414; border: 2px solid #333; border-radius: 8px; padding: 8px; box-shadow: 0 6px 15px rgba(0,0,0,0.7); display: flex; flex-direction: column; align-items: center; }
+        .canvas-title { font-size: 11px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        canvas { background-color: #111; border-radius: 4px; cursor: default; }
+        .control-panel { flex: 1; min-width: 300px; background-color: #141414; border: 2px solid #333; border-radius: 8px; padding: 15px; box-shadow: 0 6px 15px rgba(0,0,0,0.7); display: flex; flex-direction: column; justify-content: space-between; }
+        .stats-box { background-color: #1A1A1A; border-left: 4px solid #38bdf8; padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+        .stat-line { margin: 6px 0; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+        .value { color: #FFF; font-weight: bold; }
+        .interpretation { font-size: 13px; color: #D5D5D5; line-height: 1.4; }
+        .btn-reset { background-color: #222; color: #38bdf8; border: 1px solid #38bdf8; padding: 10px; cursor: pointer; font-family: inherit; font-weight: bold; border-radius: 4px; transition: all 0.2s; text-align: center; margin-top: 8px; font-size: 12px; }
+        .btn-reset:hover { background-color: #38bdf8; color: #FFF; }
+        .quick-buttons { display: flex; gap: 8px; margin-top: 6px; }
+        .btn-add { flex: 1; background: #222; border: 1px solid #555; color: #FFF; padding: 8px 4px; cursor: pointer; border-radius: 4px; font-family: inherit; font-size: 12px; font-weight: bold; }
+        .btn-add:hover { background: #333; border-color: #38bdf8; }
+        .input-field { background: #111; border: 1px solid #444; color: #fff; font-family: inherit; padding: 4px; width: 75px; text-align: right; border-radius: 4px; font-size: 13px; }
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .instruments-column, .canvas-box, .control-panel { width: 100%; min-width: 100%; box-sizing: border-box; }
+            canvas { max-width: 100%; height: auto; }
+        }
+    </style>
+</head>
+<body>
+    <h1>NAI_CENTROID v2.0: ГИРОСКОП И МАТРИЦА</h1>
+    <div class="subtitle">Глобальный авиагоризонт баланса и секторный центроид распределения сил.</div>
+
+    <div class="layout-grid">
+        <!-- КОЛОНКА ПРИБОРОВ (ДВА КРУГА ПО 260x260) -->
+        <div class="instruments-column">
+            <div class="canvas-box" style="border-color: #38bdf8;">
+                <div class="canvas-title">1. Глобальный Авиагоризонт (Баланс)</div>
+                <canvas id="gyroCanvas" width="260" height="260"></canvas>
+            </div>
+            
+            <div class="canvas-box" style="border-color: #a855f7;">
+                <div class="canvas-title">2. Детальный Центроид (Сектора сил)</div>
+                <canvas id="balanceCanvas" width="260" height="260"></canvas>
+            </div>
+        </div>
+        
+        <!-- ПАНЕЛЬ УПРАВЛЕНИЯ И ТЕЛЕМЕТРИИ -->
+        <div class="control-panel">
+            <div>
+                <h2>Панель Управления</h2>
+                
+                <!-- СТАТУС И СОВЕТ СИСТЕМЫ -->
+                <div class="stats-box" style="border-left-color: #38bdf8;">
+                    <div class="interpretation" id="interpretText">Система стабильна. Точка Нуля зафиксирована.</div>
+                </div>
+
+                <!-- БЫСТРЫЙ ВВОД СУТОЧНЫХ ТРАТ -->
+                <div class="stats-box" style="border-left-color: #eab308;">
+                    <div class="stat-line" style="font-weight: bold;">Быстрый расход (Я): <span id="valExpense" class="value">0 руб.</span></div>
+                    <div class="quick-buttons">
+                        <button class="btn-add" onclick="addExpense(100)">100 руб.</button>
+                        <button class="btn-add" onclick="addExpense(150)">150 руб.</button>
+                        <button class="btn-add" onclick="addExpense(200)">200 руб.</button>
+                        <button class="btn-add" onclick="addExpense(250)">250 руб.</button>
+                    </div>
+                </div>
+
+                <!-- ВВОД ОСНОВНЫХ ДАННЫХ -->
+                <div class="stats-box" style="border-left-color: #a855f7;">
+                    <div class="stat-line"> Текущий Бюджет: 
+                        <input type="number" id="cfgBudget" class="input-field" value="15000" onchange="updateFromInputs()">
+                    </div>
+                    <div class="stat-line"> Статический Долг: 
+                        <input type="number" id="cfgDebt" class="input-field" value="15000" onchange="updateFromInputs()">
+                    </div>
+                    <div class="stat-line"> Дней до Дня Ч: 
+                        <input type="number" id="cfgDays" class="input-field" value="30" onchange="updateFromInputs()">
+                    </div>
+                </div>
+
+                <!-- КРАТКАЯ СВОДКА -->
+                <div class="stats-box" style="border-left-color: #ef4444;">
+                    <div class="stat-line">Чистый остаток (Бюджет - Долг): <span id="valNet" class="value">0 руб.</span></div>
+                    <div class="stat-line">Активный сектор: <span id="valSector" class="value">ЦЕНТР (БАЛАНС)</span></div>
+            </div>
+            
+            <div class="btn-reset" onclick="resetToCenter()">СБРОСИТЬ ТРАТЫ И ВЕРНУТЬ В ЦЕНТР</div>
+        </div>
+    </div>
+
+    <script>
+        const gyroCanvas = document.getElementById('gyroCanvas');
+        const gCtx = gyroCanvas.getContext('2d');
+        const balCanvas = document.getElementById('balanceCanvas');
+        const bCtx = balCanvas.getContext('2d');
+
+        const radius = 110;
+        const cX = 130;
+        const cY = 130;
+
+        let pX = cX;
+        let pY = cY;
+        let currentDailyExpense = 0;
+
+        const vTime = { x: cX, y: cY - radius };
+        const vDebt = { x: cX - radius * Math.sin(Math.PI/3), y: cY + radius * Math.cos(Math.PI/3) };
+        const vBudget = { x: cX + radius * Math.sin(Math.PI/3), y: cY + radius * Math.cos(Math.PI/3) };
+
+        function drawGyroscope(tiltAngle) {
+            gCtx.clearRect(0, 0, gyroCanvas.width, gyroCanvas.height);
+
+            gCtx.beginPath();
+            gCtx.arc(cX, cY, radius, Math.PI * 0.5, Math.PI * 1.5);
+            gCtx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+            gCtx.fill();
+
+            gCtx.beginPath();
+            gCtx.arc(cX, cY, radius, -Math.PI * 0.5, Math.PI * 0.5);
+            gCtx.fillStyle = 'rgba(34, 197, 94, 0.08)';
+            gCtx.fill();
+
+            gCtx.beginPath();
+            gCtx.arc(cX, cY, radius, 0, 2 * Math.PI);
+            gCtx.strokeStyle = '#333';
+            gCtx.lineWidth = 2;
+            gCtx.stroke();
+
+            gCtx.beginPath();
+            gCtx.moveTo(cX, cY - radius);
+            gCtx.lineTo(cX, cY - radius + 12);
+            gCtx.strokeStyle = '#555';
+            gCtx.lineWidth = 2;
+            gCtx.stroke();
+
+                        gCtx.font = "bold 11px Courier New";
+            gCtx.fillStyle = '#ef4444';
+            gCtx.fillText('Д (ДЕФИЦИТ)', 12, cY - 14);
+            gCtx.fillStyle = '#22c55e';
+            gCtx.fillText('Б (ПРОФИЦИТ)', cX + 22, cY - 14);
+
+            gCtx.save();
+            gCtx.translate(cX, cY);
+            gCtx.rotate(tiltAngle);
+
+            gCtx.beginPath();
+            gCtx.moveTo(-radius + 15, 0);
+            gCtx.lineTo(radius - 15, 0);
+            gCtx.strokeStyle = tiltAngle < -0.02 ? '#ef4444' : (tiltAngle > 0.02 ? '#22c55e' : '#38bdf8');
+            gCtx.lineWidth = 3;
+            gCtx.stroke();
+
+            gCtx.beginPath();
+            gCtx.moveTo(0, 0);
+            gCtx.lineTo(0, -radius + 25);
+            gCtx.strokeStyle = '#FFF';
+            gCtx.lineWidth = 2;
+            gCtx.stroke();
+
+            gCtx.beginPath();
+            gCtx.moveTo(0, -radius + 18);
+            gCtx.lineTo(-5, -radius + 28);
+            gCtx.lineTo(5, -radius + 28);
+            gCtx.closePath();
+            gCtx.fillStyle = '#FFF';
+            gCtx.fill();
+
+            gCtx.fillStyle = '#eab308';
+            gCtx.fillText('Я', -3, -radius + 14);
+
+            gCtx.beginPath();
+            gCtx.arc(0, 0, 5, 0, 2 * Math.PI);
+            gCtx.fillStyle = '#38bdf8';
+            gCtx.fill();
+
+            gCtx.restore();
+        }
+
+        function drawCentroid() {
+            bCtx.clearRect(0, 0, balCanvas.width, balCanvas.height);
+
+            bCtx.beginPath();
+            bCtx.moveTo(cX, cY);
+            bCtx.arc(cX, cY, radius, -Math.PI * 5/6, -Math.PI * 1/6);
+            bCtx.closePath();
+            bCtx.fillStyle = 'rgba(234, 179, 8, 0.09)';
+            bCtx.fill();
+
+            bCtx.beginPath();
+            bCtx.moveTo(cX, cY);
+            bCtx.arc(cX, cY, radius, -Math.PI * 1/6, Math.PI * 0.5);
+            bCtx.closePath();
+            bCtx.fillStyle = 'rgba(34, 197, 94, 0.09)';
+            bCtx.fill();
+
+            bCtx.beginPath();
+            bCtx.moveTo(cX, cY);
+            bCtx.arc(cX, cY, radius, Math.PI * 0.5, Math.PI * 7/6);
+            bCtx.closePath();
+            bCtx.fillStyle = 'rgba(239, 68, 68, 0.09)';
+            bCtx.fill();
+
+            bCtx.beginPath();
+            bCtx.arc(cX, cY, radius, 0, 2 * Math.PI);
+            bCtx.strokeStyle = '#333';
+            bCtx.lineWidth = 2;
+            bCtx.stroke();
+
+            bCtx.strokeStyle = '#222';
+            bCtx.lineWidth = 1;
+            const angles = [-Math.PI * 5/6, -Math.PI * 1/6, Math.PI * 0.5];
+            angles.forEach(a => {
+                bCtx.beginPath();
+                bCtx.moveTo(cX, cY);
+                bCtx.lineTo(cX + radius * Math.cos(a), cY + radius * Math.sin(a));
+                bCtx.stroke();
+            });
+
+            bCtx.lineWidth = 1.5;
+            bCtx.beginPath(); bCtx.moveTo(pX, pY); bCtx.lineTo(vTime.x, vTime.y); bCtx.strokeStyle = '#eab308'; bCtx.stroke();
+            bCtx.beginPath(); bCtx.moveTo(pX, pY); bCtx.lineTo(vDebt.x, vDebt.y); bCtx.strokeStyle = '#ef4444'; bCtx.stroke();
+            bCtx.beginPath(); bCtx.moveTo(pX, pY); bCtx.lineTo(vBudget.x, vBudget.y); bCtx.strokeStyle = '#22c55e'; bCtx.stroke();
+
+            bCtx.font = "bold 10px Courier New";
+            bCtx.fillStyle = '#eab308'; bCtx.fillText(' РАСХОД (Я)', cX - 38, 14);
+            bCtx.fillStyle = '#ef4444'; bCtx.fillText(' ДОЛГ', 15, balCanvas.height - 8);
+            bCtx.fillStyle = '#22c55e'; bCtx.fillText(' БЮДЖЕТ', balCanvas.width - 68, balCanvas.height - 8);
+
+            bCtx.beginPath();
+            bCtx.arc(pX, pY, 7, 0, 2 * Math.PI);
+            bCtx.fillStyle = '#FFF';
+            bCtx.shadowBlur = 10;
+            bCtx.shadowColor = '#38bdf8';
+            bCtx.fill();
+            bCtx.shadowBlur = 0;
+        }
+
+        function recalculateAll() {
+            const budget = parseFloat(document.getElementById('cfgBudget').value) || 0;
+            const debt = parseFloat(document.getElementById('cfgDebt').value) || 0;
+            const days = parseFloat(document.getElementById('cfgDays').value) || 1;
+
+            let netBalance = budget - debt;
+            document.getElementById('valNet').innerText = (netBalance > 0 ? "+" : "") + netBalance + " ?";
+            document.getElementById('valNet').style.color = netBalance < 0 ? "#ef4444" : (netBalance > 0 ? "#22c55e" : "#FFF");
+
+            let timePressure = 0;
+            if (netBalance < 0) {
+                let urgency = (31 - Math.min(days, 30)) / 30; 
+           timePressure = Math.abs(netBalance) * urgency * 1.6;
+            }
+
+            let effectiveBalance = netBalance - timePressure;
+            let scaleBase = Math.max(debt, 15000);
+            let ratio = Math.max(-1, Math.min(1, effectiveBalance / scaleBase));
+            let tiltAngle = ratio * 0.78;
+
+                                    let wDebt = debt + timePressure;
+            let wBudget = budget;
+            let wLife = 0;
+
+            if (wBudget === 0 && wDebt === 0 && currentDailyExpense === 0) {
+                // Если всё по нулям — все три силы равны по единице (строгий центр)
+                wBudget = 1; wDebt = 1; wLife = 1;
+            } else {
+                // Базовый вес верхней вершины равен Долгу (чтобы при равенстве Бюджет=Долг был центр),
+                // но если Бюджет сильно больше Долга — верх не раздувается и пускает точку к краю круга!
+                let baseLife = Math.min(wBudget, wDebt);
+                if (baseLife === 0 && currentDailyExpense === 0) {
+                    baseLife = Math.max(wBudget, wDebt) * 0.1; 
+                }
+                let safeBudget = Math.max(wBudget, 1000);
+                let expenseRatio = currentDailyExpense / safeBudget;
+                wLife = baseLife + (Math.max(wBudget, wDebt) * expenseRatio * 2);
+            }
+
+            let totalMass = wBudget + wDebt + wLife;
+            if (totalMass === 0) totalMass = 1;
+
+            let targetX = (vBudget.x * wBudget + vDebt.x * wDebt + vTime.x * wLife) / totalMass;
+            let targetY = (vBudget.y * wBudget + vDebt.y * wDebt + vTime.y * wLife) / totalMass;
+
+            const dist = Math.hypot(targetX - cX, targetY - cY);
+            if (dist <= radius - 8) {
+                pX = targetX; pY = targetY;
+            } else {
+                const angle = Math.atan2(targetY - cY, targetX - cX);
+                pX = cX + (radius - 8) * Math.cos(angle);
+                pY = cY + (radius - 8) * Math.sin(angle);
+            }
+
+            let sectorName = "ЦЕНТР (БАЛАНС)";
+            let advice = "?? Система в равновесии. Ресурс покрывает обязательства.";
+
+            if (dist > 10) {
+                let deg = Math.atan2(pY - cY, pX - cX) * (180 / Math.PI);
+                if (deg >= -150 && deg < -30) {
+                    sectorName = "? ЗОНА РАСХОДОВ (Я)";
+                    advice = " Предохранитель: текущие траты тянут центр вверх. Притормози мелкие расходы.";
+                } else if (deg >= -30 && deg < 90) {
+                    sectorName = " ЗОНА БЮДЖЕТА (ПРОФИЦИТ)";
+                    advice = " Профицит: запас прочности создан. Давление времени отключено.";
+                } else {
+                    sectorName = " ЗОНА ДОЛГА (ДЕФИЦИТ)";
+                    advice = netBalance < 0 
+                        ? " Дефицит бюджета! Включена гравитация времени до Дня Ч. Нужен приток средств."
+                        : " Вектор обязательств перевешивает. Контролируй суточный лимит.";
+                }
+            }
+
+            document.getElementById('valSector').innerText = sectorName;
+            document.getElementById('interpretText').innerText = advice;
+
+            try {
+                localStorage.setItem('nai_fin2_budget', budget);
+                localStorage.setItem('nai_fin2_debt', debt);
+                localStorage.setItem('nai_fin2_days', days);
+                localStorage.setItem('nai_fin2_expense', currentDailyExpense);
+            } catch (e) {}
+
+            drawGyroscope(tiltAngle);
+            drawCentroid();
+        }
+
+        function addExpense(amount) {
+            currentDailyExpense += amount;
+            document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
+            
+            let bInput = document.getElementById('cfgBudget');
+            let currentBudget = parseFloat(bInput.value) || 0;
+            bInput.value = Math.max(0, currentBudget - amount);
+            
+            recalculateAll();
+        }
+
+        function updateFromInputs() {
+            recalculateAll();
+        }
+
+        function resetToCenter() {
+            currentDailyExpense = 0;
+            document.getElementById('valExpense').innerText = "0 руб.";
+            document.getElementById('cfgBudget').value = "15000";
+            document.getElementById('cfgDebt').value = "15000";
+            document.getElementById('cfgDays').value = "30";
+            try {
+                localStorage.removeItem('nai_fin2_budget');
+                localStorage.removeItem('nai_fin2_debt');
+                localStorage.removeItem('nai_fin2_days');
+                localStorage.removeItem('nai_fin2_expense');
+            } catch (e) {}
+            recalculateAll();
+        }
+
+        function initApp() {
+            try {
+                let sB = localStorage.getItem('nai_fin2_budget');
+                let sD = localStorage.getItem('nai_fin2_debt');
+                let sDays = localStorage.getItem('nai_fin2_days');
+                let sExp = localStorage.getItem('nai_fin2_expense');
+
+                if (sB !== null) document.getElementById('cfgBudget').value = sB;
+                if (sD !== null) document.getElementById('cfgDebt').value = sD;
+                if (sDays !== null) document.getElementById('cfgDays').value = sDays;
+                if (sExp !== null) {
+                    currentDailyExpense = parseFloat(sExp) || 0;
+                    document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
+                }
+            } catch (e) {}
+            recalculateAll();
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
