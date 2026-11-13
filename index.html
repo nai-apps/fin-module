@@ -32,11 +32,11 @@
     </style>
 </head>
 <body>
-    <h1>NAI_CENTROID v2.0: ГИРОСКОП И МАТРИЦА</h1>
-    <div class="subtitle">Глобальный авиагоризонт баланса и секторный центроид распределения сил.</div>
+    <h1>NAI: МОДУЛЬ СТАБИЛИЗАЦИИ ФИНАНСОВОГО СОСТОЯНИЯ v2.2</h1>
+    <div class="subtitle">Глобальный авиагоризонт баланса, секторный центроид сил и динамика средней.</div>
 
     <div class="layout-grid">
-        <!-- КОЛОНКА ПРИБОРОВ (ДВА КРУГА ПО 260x260) -->
+            <!-- КОЛОНКА ПРИБОРОВ -->
         <div class="instruments-column">
             <div class="canvas-box" style="border-color: #38bdf8;">
                 <div class="canvas-title">1. Глобальный Авиагоризонт (Баланс)</div>
@@ -46,6 +46,11 @@
             <div class="canvas-box" style="border-color: #a855f7;">
                 <div class="canvas-title">2. Детальный Центроид (Сектора сил)</div>
                 <canvas id="balanceCanvas" width="260" height="260"></canvas>
+            </div>
+
+            <div class="canvas-box" style="border-color: #22c55e;">
+                <div class="canvas-title">3. Динамика и Средняя (SMA)</div>
+                <canvas id="smaCanvas" width="260" height="110"></canvas>
             </div>
         </div>
         
@@ -79,7 +84,7 @@
                         <input type="number" id="cfgDebt" class="input-field" value="15000" onchange="updateFromInputs()">
                     </div>
                     <div class="stat-line"> Дней до Дня Ч: 
-                        <input type="number" id="cfgDays" class="input-field" value="30" onchange="updateFromInputs()">
+                        <input type="number" id="cfgDays" class="input-field" value="30" onchange="updateDaysStart()">
                     </div>
                 </div>
 
@@ -98,6 +103,8 @@
         const gCtx = gyroCanvas.getContext('2d');
         const balCanvas = document.getElementById('balanceCanvas');
         const bCtx = balCanvas.getContext('2d');
+        const smaCanvas = document.getElementById('smaCanvas');
+        const sCtx = smaCanvas.getContext('2d');
 
         const radius = 110;
         const cX = 130;
@@ -239,19 +246,105 @@
             bCtx.shadowBlur = 0;
         }
 
+                function drawSMA(currentVal) {
+            if (!sCtx) return;
+            let today = new Date().toISOString().slice(0, 10);
+            let history = [];
+            try {
+                history = JSON.parse(localStorage.getItem('nai_fin2_sma_hist') || '[]');
+            } catch (e) {}
+
+            if (history.length > 0 && history[history.length - 1].date === today) {
+                history[history.length - 1].val = currentVal;
+            } else {
+                history.push({ date: today, val: currentVal });
+                if (history.length > 14) history.shift();
+            }
+
+            try {
+                localStorage.setItem('nai_fin2_sma_hist', JSON.stringify(history));
+            } catch (e) {}
+
+            const w = smaCanvas.width;
+            const h = smaCanvas.height;
+            sCtx.clearRect(0, 0, w, h);
+
+                        if (history.length === 1) {
+                history = [{ date: 'start', val: currentVal }, history[0]];
+            }
+
+            let smaList = [];
+            for (let i = 0; i < history.length; i++) {
+                let start = Math.max(0, i - 2);
+                let sum = 0;
+                for (let j = start; j <= i; j++) sum += history[j].val;
+                smaList.push(sum / (i - start + 1));
+            }
+
+            let allVals = history.map(d => d.val).concat(smaList);
+            let minVal = Math.min(...allVals);
+            let maxVal = Math.max(...allVals);
+            if (minVal === maxVal) { minVal -= 1000; maxVal += 1000; }
+
+            const pad = 16;
+            const getX = (idx) => pad + (idx / (history.length - 1)) * (w - pad * 2);
+            const getY = (v) => (h - pad) - ((v - minVal) / (maxVal - minVal)) * (h - pad * 2);
+
+            if (minVal <= 0 && maxVal >= 0) {
+                let yZero = getY(0);
+                sCtx.strokeStyle = '#333';
+                sCtx.lineWidth = 1;
+                sCtx.setLineDash([4, 4]);
+                sCtx.beginPath();
+                sCtx.moveTo(pad, yZero);
+                sCtx.lineTo(w - pad, yZero);
+                sCtx.stroke();
+                sCtx.setLineDash([]);
+            }
+
+            sCtx.strokeStyle = '#666';
+            sCtx.lineWidth = 1.5;
+            sCtx.beginPath();
+            history.forEach((pt, idx) => {
+                let x = getX(idx), y = getY(pt.val);
+                if (idx === 0) sCtx.moveTo(x, y); else sCtx.lineTo(x, y);
+            });
+            sCtx.stroke();
+
+            sCtx.strokeStyle = '#38bdf8';
+            sCtx.lineWidth = 2.5;
+            sCtx.beginPath();
+            smaList.forEach((v, idx) => {
+                let x = getX(idx), y = getY(v);
+                if (idx === 0) sCtx.moveTo(x, y); else sCtx.lineTo(x, y);
+            });
+            sCtx.stroke();
+
+            let lastX = getX(smaList.length - 1);
+            let lastY = getY(smaList[smaList.length - 1]);
+            sCtx.fillStyle = '#38bdf8';
+            sCtx.beginPath();
+            sCtx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+            sCtx.fill();
+
+            sCtx.fillStyle = '#888';
+            sCtx.font = '10px sans-serif';
+            sCtx.fillText('Дней в базе: ' + history.length + ' (SMA-3)', 8, 12);
+        }
+
         function recalculateAll() {
             const budget = parseFloat(document.getElementById('cfgBudget').value) || 0;
             const debt = parseFloat(document.getElementById('cfgDebt').value) || 0;
             const days = parseFloat(document.getElementById('cfgDays').value) || 1;
 
             let netBalance = budget - debt;
-            document.getElementById('valNet').innerText = (netBalance > 0 ? "+" : "") + netBalance + " ?";
+            document.getElementById('valNet').innerText = (netBalance > 0 ? "+" : "") + netBalance + " руб.";
             document.getElementById('valNet').style.color = netBalance < 0 ? "#ef4444" : (netBalance > 0 ? "#22c55e" : "#FFF");
 
             let timePressure = 0;
             if (netBalance < 0) {
                 let urgency = (31 - Math.min(days, 30)) / 30; 
-           timePressure = Math.abs(netBalance) * urgency * 1.6;
+                timePressure = Math.abs(netBalance) * urgency * 1.6;
             }
 
             let effectiveBalance = netBalance - timePressure;
@@ -259,23 +352,18 @@
             let ratio = Math.max(-1, Math.min(1, effectiveBalance / scaleBase));
             let tiltAngle = ratio * 0.78;
 
-                                    let wDebt = debt + timePressure;
+            let wDebt = debt + timePressure;
             let wBudget = budget;
             let wLife = 0;
 
             if (wBudget === 0 && wDebt === 0 && currentDailyExpense === 0) {
-                // Если всё по нулям — все три силы равны по единице (строгий центр)
                 wBudget = 1; wDebt = 1; wLife = 1;
             } else {
-                // Базовый вес верхней вершины равен Долгу (чтобы при равенстве Бюджет=Долг был центр),
-                // но если Бюджет сильно больше Долга — верх не раздувается и пускает точку к краю круга!
                 let baseLife = Math.min(wBudget, wDebt);
                 if (baseLife === 0 && currentDailyExpense === 0) {
                     baseLife = Math.max(wBudget, wDebt) * 0.1; 
                 }
-                let safeBudget = Math.max(wBudget, 1000);
-                let expenseRatio = currentDailyExpense / safeBudget;
-                wLife = baseLife + (Math.max(wBudget, wDebt) * expenseRatio * 2);
+                wLife = baseLife + (currentDailyExpense * 2);
             }
 
             let totalMass = wBudget + wDebt + wLife;
@@ -294,21 +382,21 @@
             }
 
             let sectorName = "ЦЕНТР (БАЛАНС)";
-            let advice = "?? Система в равновесии. Ресурс покрывает обязательства.";
+            let advice = "Система в равновесии. Ресурс покрывает обязательства.";
 
             if (dist > 10) {
                 let deg = Math.atan2(pY - cY, pX - cX) * (180 / Math.PI);
                 if (deg >= -150 && deg < -30) {
-                    sectorName = "? ЗОНА РАСХОДОВ (Я)";
-                    advice = " Предохранитель: текущие траты тянут центр вверх. Притормози мелкие расходы.";
+                    sectorName = "ЗОНА РАСХОДОВ (Я)";
+                    advice = "Предохранитель: текущие траты тянут центр вверх. Притормози мелкие расходы.";
                 } else if (deg >= -30 && deg < 90) {
-                    sectorName = " ЗОНА БЮДЖЕТА (ПРОФИЦИТ)";
-                    advice = " Профицит: запас прочности создан. Давление времени отключено.";
+                    sectorName = "ЗОНА БЮДЖЕТА (ПРОФИЦИТ)";
+                    advice = "Профицит: запас прочности создан. Давление времени отключено.";
                 } else {
-                    sectorName = " ЗОНА ДОЛГА (ДЕФИЦИТ)";
+                    sectorName = "ЗОНА ДОЛГА (ДЕФИЦИТ)";
                     advice = netBalance < 0 
-                        ? " Дефицит бюджета! Включена гравитация времени до Дня Ч. Нужен приток средств."
-                        : " Вектор обязательств перевешивает. Контролируй суточный лимит.";
+                        ? "Дефицит бюджета! Включена гравитация времени до Дня Ч. Нужен приток средств."
+                        : "Вектор обязательств перевешивает. Контролируй суточный лимит.";
                 }
             }
 
@@ -324,6 +412,7 @@
 
             drawGyroscope(tiltAngle);
             drawCentroid();
+            drawSMA(netBalance);
         }
 
         function addExpense(amount) {
@@ -341,6 +430,15 @@
             recalculateAll();
         }
 
+        function updateDaysStart() {
+            let d = parseInt(document.getElementById('cfgDays').value) || 0;
+            try {
+                localStorage.setItem('nai_fin2_days_base', d);
+                localStorage.setItem('nai_fin2_days_start', Date.now());
+            } catch (e) {}
+            recalculateAll();
+        }
+
         function resetToCenter() {
             currentDailyExpense = 0;
             document.getElementById('valExpense').innerText = "0 руб.";
@@ -351,7 +449,10 @@
                 localStorage.removeItem('nai_fin2_budget');
                 localStorage.removeItem('nai_fin2_debt');
                 localStorage.removeItem('nai_fin2_days');
+                localStorage.removeItem('nai_fin2_days_base');
+                localStorage.removeItem('nai_fin2_days_start');
                 localStorage.removeItem('nai_fin2_expense');
+                localStorage.removeItem('nai_fin2_sma_hist');
             } catch (e) {}
             recalculateAll();
         }
@@ -360,15 +461,21 @@
             try {
                 let sB = localStorage.getItem('nai_fin2_budget');
                 let sD = localStorage.getItem('nai_fin2_debt');
-                let sDays = localStorage.getItem('nai_fin2_days');
                 let sExp = localStorage.getItem('nai_fin2_expense');
 
                 if (sB !== null) document.getElementById('cfgBudget').value = sB;
                 if (sD !== null) document.getElementById('cfgDebt').value = sD;
-                if (sDays !== null) document.getElementById('cfgDays').value = sDays;
                 if (sExp !== null) {
                     currentDailyExpense = parseFloat(sExp) || 0;
                     document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
+                }
+
+                let baseDays = localStorage.getItem('nai_fin2_days_base');
+                let startTs = localStorage.getItem('nai_fin2_days_start');
+                if (baseDays !== null && startTs !== null) {
+                    let passedDays = Math.floor((Date.now() - parseInt(startTs)) / 86400000);
+                    let leftDays = Math.max(0, parseInt(baseDays) - passedDays);
+                    document.getElementById('cfgDays').value = leftDays;
                 }
             } catch (e) {}
             recalculateAll();
