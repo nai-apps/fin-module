@@ -421,7 +421,7 @@
 
                 let isLocked = false;
 
-        function renderLockState() {
+                        function renderLockState() {
             const btn = document.getElementById('lockBtn');
             const inputs = [
                 document.getElementById('cfgBudget'),
@@ -433,6 +433,12 @@
                     inp.disabled = isLocked;
                     inp.style.opacity = isLocked ? '0.5' : '1';
                 }
+            });
+
+            document.querySelectorAll('.btn-add').forEach(b => {
+                b.disabled = isLocked;
+                b.style.opacity = isLocked ? '0.45' : '1';
+                b.style.pointerEvents = isLocked ? 'none' : 'auto';
             });
 
             const resetBtn = document.getElementById('btnReset');
