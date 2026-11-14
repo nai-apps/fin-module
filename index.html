@@ -32,7 +32,7 @@
     </style>
 </head>
 <body>
-    <h1>NAI: МОДУЛЬ СТАБИЛИЗАЦИИ ФИНАНСОВОГО СОСТОЯНИЯ v2.2</h1>
+    <h1>NAI: МОДУЛЬ СТАБИЛИЗАЦИИ ФИНАНСОВОГО СОСТОЯНИЯ v2.3</h1>
     <div class="subtitle">Глобальный авиагоризонт баланса, секторный центроид сил и динамика средней.</div>
 
     <div class="layout-grid">
@@ -54,10 +54,13 @@
             </div>
         </div>
         
-        <!-- ПАНЕЛЬ УПРАВЛЕНИЯ И ТЕЛЕМЕТРИИ -->
+                <!-- ПАНЕЛЬ УПРАВЛЕНИЯ И ТЕЛЕМЕТРИИ -->
         <div class="control-panel">
             <div>
-                <h2>Панель Управления</h2>
+                <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Панель Управления</span>
+                    <button id="lockBtn" onclick="toggleLock()" title="Блокировка ввода" style="background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 14px; line-height: 1;">??</button>
+                </h2>
                 
                 <!-- СТАТУС И СОВЕТ СИСТЕМЫ -->
                 <div class="stats-box" style="border-left-color: #38bdf8;">
@@ -92,9 +95,10 @@
                 <div class="stats-box" style="border-left-color: #ef4444;">
                     <div class="stat-line">Чистый остаток (Бюджет - Долг): <span id="valNet" class="value">0 руб.</span></div>
                     <div class="stat-line">Активный сектор: <span id="valSector" class="value">ЦЕНТР (БАЛАНС)</span></div>
+                </div>
             </div>
             
-            <div class="btn-reset" onclick="resetToCenter()">СБРОСИТЬ ТРАТЫ И ВЕРНУТЬ В ЦЕНТР</div>
+            <div id="btnReset" class="btn-reset" onclick="confirmReset()">СТАРТ НОВОГО ЦИКЛА / СБРОС</div>
         </div>
     </div>
 
@@ -415,6 +419,61 @@
             drawSMA(netBalance);
         }
 
+                let isLocked = false;
+
+        function renderLockState() {
+            const btn = document.getElementById('lockBtn');
+            const inputs = [
+                document.getElementById('cfgBudget'),
+                document.getElementById('cfgDebt'),
+                document.getElementById('cfgDays')
+            ];
+            inputs.forEach(inp => {
+                if (inp) {
+                    inp.disabled = isLocked;
+                    inp.style.opacity = isLocked ? '0.5' : '1';
+                }
+            });
+
+            const resetBtn = document.getElementById('btnReset');
+            if (resetBtn) {
+                resetBtn.style.opacity = isLocked ? '0.45' : '1';
+                resetBtn.style.pointerEvents = isLocked ? 'none' : 'auto';
+            }
+
+            if (btn) {
+                btn.style.borderColor = isLocked ? '#ef4444' : '#22c55e';
+                btn.style.color = isLocked ? '#ef4444' : '#22c55e';
+                btn.innerHTML = isLocked
+                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
+                    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-1.8"/></svg>';
+            }
+        }
+
+        function toggleLock() {
+            isLocked = !isLocked;
+            try {
+                localStorage.setItem('nai_fin2_locked', isLocked ? '1' : '0');
+            } catch (e) {}
+            renderLockState();
+        }
+
+        function syncCountdownDays(needRecalc) {
+            try {
+                let baseDays = localStorage.getItem('nai_fin2_days_base');
+                let startTs = localStorage.getItem('nai_fin2_days_start');
+                if (baseDays !== null && startTs !== null) {
+                    let passedDays = Math.floor((Date.now() - parseInt(startTs)) / 86400000);
+                    let leftDays = Math.max(0, parseInt(baseDays) - passedDays);
+                    let dInput = document.getElementById('cfgDays');
+                    if (dInput && parseInt(dInput.value) !== leftDays) {
+                        dInput.value = leftDays;
+                        if (needRecalc) recalculateAll();
+                    }
+                }
+            } catch (e) {}
+        }
+
         function addExpense(amount) {
             currentDailyExpense += amount;
             document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
@@ -437,6 +496,13 @@
                 localStorage.setItem('nai_fin2_days_start', Date.now());
             } catch (e) {}
             recalculateAll();
+        }
+
+        function confirmReset() {
+            if (isLocked) return;
+            if (confirm("Обнулить текущие траты и запустить новый цикл с чистого листа?")) {
+                resetToCenter();
+            }
         }
 
         function resetToCenter() {
@@ -462,6 +528,7 @@
                 let sB = localStorage.getItem('nai_fin2_budget');
                 let sD = localStorage.getItem('nai_fin2_debt');
                 let sExp = localStorage.getItem('nai_fin2_expense');
+                let sLock = localStorage.getItem('nai_fin2_locked');
 
                 if (sB !== null) document.getElementById('cfgBudget').value = sB;
                 if (sD !== null) document.getElementById('cfgDebt').value = sD;
@@ -469,17 +536,18 @@
                     currentDailyExpense = parseFloat(sExp) || 0;
                     document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
                 }
+                if (sLock === '1') isLocked = true;
 
-                let baseDays = localStorage.getItem('nai_fin2_days_base');
-                let startTs = localStorage.getItem('nai_fin2_days_start');
-                if (baseDays !== null && startTs !== null) {
-                    let passedDays = Math.floor((Date.now() - parseInt(startTs)) / 86400000);
-                    let leftDays = Math.max(0, parseInt(baseDays) - passedDays);
-                    document.getElementById('cfgDays').value = leftDays;
-                }
+                syncCountdownDays(false);
             } catch (e) {}
+            renderLockState();
             recalculateAll();
         }
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) syncCountdownDays(true);
+        });
+        setInterval(() => syncCountdownDays(true), 60000);
 
         initApp();
     </script>
