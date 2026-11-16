@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -69,7 +69,7 @@
 
                 <!-- БЫСТРЫЙ ВВОД СУТОЧНЫХ ТРАТ -->
                 <div class="stats-box" style="border-left-color: #eab308;">
-                    <div class="stat-line" style="font-weight: bold;">Быстрый расход (Я): <span id="valExpense" class="value">0 руб.</span></div>
+                    <div class="stat-line" style="font-weight: bold;">Текущий расход (Я): <span id="valExpense" class="value">0 руб.</span></div>
                                         <div class="quick-buttons">
                         <button class="btn-add" onclick="addExpense(50)">50 руб.</button>
                         <button class="btn-add" onclick="addExpense(100)">100 руб.</button>
@@ -80,12 +80,12 @@
 
                 <!-- ВВОД ОСНОВНЫХ ДАННЫХ -->
                 <div class="stats-box" style="border-left-color: #a855f7;">
-                    <div class="stat-line"> Текущий Бюджет: 
-                        <input type="number" id="cfgBudget" class="input-field" value="15000" onchange="updateFromInputs()">
-                    </div>
-                    <div class="stat-line"> Статический Долг: 
-                        <input type="number" id="cfgDebt" class="input-field" value="15000" onchange="updateFromInputs()">
-                    </div>
+                    <div class="stat-line"> Бюджет: 
+    <input type="number" id="cfgBudget" class="input-field" value="15000" onchange="updateFromInputs()">
+</div>
+<div class="stat-line"> Постоянный долг: 
+    <input type="number" id="cfgDebt" class="input-field" value="15000" onchange="updateFromInputs()">
+</div>
                     <div class="stat-line"> Дней до Дня Ч: 
                         <input type="number" id="cfgDays" class="input-field" value="30" onchange="updateDaysStart()">
                     </div>
@@ -148,11 +148,11 @@
             gCtx.lineWidth = 2;
             gCtx.stroke();
 
-                        gCtx.font = "bold 11px Courier New";
-            gCtx.fillStyle = '#ef4444';
-            gCtx.fillText('Д (ДЕФИЦИТ)', 12, cY - 14);
-            gCtx.fillStyle = '#22c55e';
-            gCtx.fillText('Б (ПРОФИЦИТ)', cX + 22, cY - 14);
+                        gCtx.font = "bold 13px Courier New";
+gCtx.fillStyle = '#ef4444';
+gCtx.fillText('Д', 6, cY + 4);
+gCtx.fillStyle = '#22c55e';
+gCtx.fillText('П', 245, cY + 4);
 
             gCtx.save();
             gCtx.translate(cX, cY);
@@ -180,8 +180,9 @@
             gCtx.fillStyle = '#FFF';
             gCtx.fill();
 
-            gCtx.fillStyle = '#eab308';
-            gCtx.fillText('Я', -3, -radius + 14);
+            gCtx.font = "bold 15px Courier New";
+gCtx.fillStyle = '#eab308';
+gCtx.fillText('Я', -4, -radius + 14);
 
             gCtx.beginPath();
             gCtx.arc(0, 0, 5, 0, 2 * Math.PI);
