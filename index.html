@@ -148,11 +148,13 @@
             gCtx.lineWidth = 2;
             gCtx.stroke();
 
-                        gCtx.font = "bold 13px Courier New";
-gCtx.fillStyle = '#ef4444';
-gCtx.fillText('Д', 6, cY + 4);
-gCtx.fillStyle = '#22c55e';
-gCtx.fillText('П', 245, cY + 4);
+                                                gCtx.font = "bold 11px Courier New";
+            gCtx.fillStyle = '#ef4444';
+            gCtx.fillText('Д', 5, cY - 14);
+            gCtx.fillText('ДЕФИЦИТ', 32, cY - 14);
+            gCtx.fillStyle = '#22c55e';
+            gCtx.fillText('ПРОФИЦИТ', 176, cY - 14);
+            gCtx.fillText('П', 249, cY - 14);
 
             gCtx.save();
             gCtx.translate(cX, cY);
