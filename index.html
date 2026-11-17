@@ -348,16 +348,24 @@ gCtx.fillText('Я', -4, -radius + 14);
             document.getElementById('valNet').innerText = (netBalance > 0 ? "+" : "") + netBalance + " руб.";
             document.getElementById('valNet').style.color = netBalance < 0 ? "#ef4444" : (netBalance > 0 ? "#22c55e" : "#FFF");
 
-            let timePressure = 0;
-if (netBalance < 0) {
-    let urgency = (31 - Math.min(days, 30)) / 30; 
-    timePressure = Math.abs(netBalance) * urgency * 7.5;
-}
+                        let timePressure = 0;
+            if (netBalance < 0) {
+                let urgency = (31 - Math.min(days, 30)) / 30; 
+                timePressure = Math.abs(netBalance) * urgency * 1.6;
+            }
 
-let effectiveBalance = netBalance - timePressure;
-let scaleBase = Math.max(debt, 15000);
-let norm = effectiveBalance / scaleBase;
-let tiltAngle = Math.atan(norm * 1.0);
+            let scaleBase = Math.max(debt, 15000);
+            let norm = netBalance / scaleBase;
+            let tiltAngle = Math.atan(norm);
+
+            if (netBalance < 0) {
+                let timeRatio = (30 - Math.min(days, 30)) / 30;
+                let timeAccel = Math.pow(timeRatio, 1.8);
+                let debtWeight = Math.sqrt(Math.min(1, Math.abs(netBalance) / scaleBase));
+                let maxRad = 1.52;
+                tiltAngle -= (maxRad - Math.abs(tiltAngle)) * debtWeight * timeAccel;
+            }
+
 
 
 
