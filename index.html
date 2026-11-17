@@ -356,8 +356,9 @@ gCtx.fillText('Я', -4, -radius + 14);
 
             let effectiveBalance = netBalance - timePressure;
             let scaleBase = Math.max(debt, 15000);
-            let ratio = Math.max(-1, Math.min(1, effectiveBalance / scaleBase));
-            let tiltAngle = ratio * 0.78;
+let norm = effectiveBalance / scaleBase;
+let tiltAngle = Math.atan(norm * 1.6);
+
 
             let wDebt = debt + timePressure;
             let wBudget = budget;
