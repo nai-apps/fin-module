@@ -494,16 +494,23 @@ gCtx.fillText('Я', -4, -radius + 14);
             } catch (e) {}
         }
 
-        function addExpense(amount) {
-            currentDailyExpense += amount;
-            document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
-            
+                function addExpense(amount) {
             let bInput = document.getElementById('cfgBudget');
             let currentBudget = parseFloat(bInput.value) || 0;
-            bInput.value = Math.max(0, currentBudget - amount);
+
+            if (currentBudget <= 0) {
+                document.getElementById('interpretText').innerText = "Бюджет исчерпан (0 руб.). Дальнейший расход заблокирован.";
+                return;
+            }
+
+            let actualSpend = Math.min(amount, currentBudget);
+            currentDailyExpense += actualSpend;
+            document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
+            bInput.value = currentBudget - actualSpend;
             
             recalculateAll();
         }
+
 
         function updateFromInputs() {
             recalculateAll();
