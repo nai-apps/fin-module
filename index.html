@@ -541,7 +541,7 @@ gCtx.fillText('Я', -4, -radius + 14);
             }
         }
 
-        function resetToCenter() {
+                function resetToCenter() {
             currentDailyExpense = 0;
             document.getElementById('valExpense').innerText = "0 руб.";
             document.getElementById('cfgBudget').value = "15000";
@@ -555,9 +555,12 @@ gCtx.fillText('Я', -4, -radius + 14);
                 localStorage.removeItem('nai_fin2_days_start');
                 localStorage.removeItem('nai_fin2_expense');
                 localStorage.removeItem('nai_fin2_sma_hist');
+                localStorage.setItem('nai_fin2_days_base', 30);
+                localStorage.setItem('nai_fin2_days_start', Date.now());
             } catch (e) {}
             recalculateAll();
         }
+
 
         function initApp() {
             try {
