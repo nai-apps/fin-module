@@ -99,12 +99,13 @@
                 </div>
             </div>
             
-                        <div id="btnReset" class="btn-reset" onclick="confirmReset()">СТАРТ НОВОГО ЦИКЛА / СБРОС</div>
-            <div style="display:flex; gap:8px; margin-top:8px; width:100%;">
-                <button onclick="exportFinBackup()" style="flex:1; background:#141414; color:#38bdf8; border:1px solid #262626; border-radius:6px; padding:7px 10px; font-size:11px; font-family:inherit; cursor:pointer;">⬇ СКАЧАТЬ БЭКАП</button>
-                <button onclick="document.getElementById('finBackupFile').click()" style="flex:1; background:#141414; color:#22c55e; border:1px solid #262626; border-radius:6px; padding:7px 10px; font-size:11px; font-family:inherit; cursor:pointer;">⬆ ЗАГРУЗИТЬ БЭКАП</button>
-                <input type="file" id="finBackupFile" accept=".json" style="display:none;" onchange="importFinBackup(event)">
-            </div>
+                                    <div id="btnReset" class="btn-reset" onclick="confirmReset()">СТАРТ НОВОГО ЦИКЛА / СБРОС</div>
+        </div>
+
+        <div style="grid-column: 1 / -1; display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid #222; width:100%;">
+            <button onclick="exportFinBackup()" style="flex:1; background:#141414; color:#38bdf8; border:1px solid #262626; border-radius:6px; padding:8px 10px; font-size:11px; font-family:inherit; cursor:pointer;">⬇ СКАЧАТЬ БЭКАП</button>
+            <button onclick="document.getElementById('finBackupFile').click()" style="flex:1; background:#141414; color:#22c55e; border:1px solid #262626; border-radius:6px; padding:8px 10px; font-size:11px; font-family:inherit; cursor:pointer;">⬆ ЗАГРУЗИТЬ БЭКАП</button>
+            <input type="file" id="finBackupFile" accept=".json" style="display:none;" onchange="importFinBackup(event)">
         </div>
     </div>
 
