@@ -578,6 +578,50 @@ gCtx.fillText('Я', -4, -radius + 14);
             recalculateAll();
         }
 
+                function exportFinBackup() {
+            const keys = [
+                'nai_fin2_budget', 'nai_fin2_debt', 'nai_fin2_days',
+                'nai_fin2_days_base', 'nai_fin2_days_start',
+                'nai_fin2_expense', 'nai_fin2_sma_hist', 'nai_fin2_locked'
+            ];
+            let data = { module: 'NAI_FIN_V2', exportedAt: new Date().toISOString(), storage: {} };
+            keys.forEach(k => {
+                let v = localStorage.getItem(k);
+                if (v !== null) data.storage[k] = v;
+            });
+            let blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = 'nai-fin-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importFinBackup(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let parsed = JSON.parse(e.target.result);
+                    if (!parsed || parsed.module !== 'NAI_FIN_V2' || !parsed.storage) {
+                        alert('Ошибка: выбран неверный файл резервной копии.');
+                        return;
+                    }
+                    Object.keys(parsed.storage).forEach(k => {
+                        localStorage.setItem(k, parsed.storage[k]);
+                    });
+                    alert('Резервная копия успешно восстановлена!');
+                    initApp();
+                } catch (err) {
+                    alert('Ошибка чтения файла резервной копии.');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) syncCountdownDays(true);
         });
