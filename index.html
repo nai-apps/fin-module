@@ -68,10 +68,12 @@
                     <div class="interpretation" id="interpretText">Система стабильна. Точка Нуля зафиксирована.</div>
                 </div>
 
-                <!-- БЫСТРЫЙ ВВОД СУТОЧНЫХ ТРАТ -->
+                                <!-- БЫСТРЫЙ ВВОД СУТОЧНЫХ ТРАТ -->
                 <div class="stats-box" style="border-left-color: #eab308;">
-                    <div class="stat-line" style="font-weight: bold;">Текущий расход (Я): <span id="valExpense" class="value">0 руб.</span></div>
-                                        <div class="quick-buttons">
+                    <div class="stat-line" style="font-weight: bold;">Общие расходы (цикл): <span id="valExpense" class="value">0 руб.</span></div>
+                    <div class="stat-line" style="font-weight: bold; color: #eab308;">Текущий расход (за день): <span id="valTodayExpense" class="value" style="color: #eab308;">0 руб.</span></div>
+                    <div class="quick-buttons">
+
                         <button class="btn-add" onclick="addExpense(50)">50 руб.</button>
                         <button class="btn-add" onclick="addExpense(100)">100 руб.</button>
                         <button class="btn-add" onclick="addExpense(200)">200 руб.</button>
@@ -123,9 +125,33 @@
         const cX = 130;
         const cY = 130;
 
-        let pX = cX;
+                let pX = cX;
         let pY = cY;
         let currentDailyExpense = 0;
+        let todayOnlyExpense = 0;
+
+        function getTodayKey() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function syncTodayExpenseDate() {
+            try {
+                const today = getTodayKey();
+                const savedDate = localStorage.getItem('nai_fin2_today_date');
+                if (savedDate !== today) {
+                    todayOnlyExpense = 0;
+                    localStorage.setItem('nai_fin2_today_date', today);
+                    localStorage.setItem('nai_fin2_today_exp', '0');
+                }
+                const el = document.getElementById('valTodayExpense');
+                if (el) el.innerText = todayOnlyExpense + " руб.";
+            } catch (e) {}
+        }
+
 
         const vTime = { x: cX, y: cY - radius };
         const vDebt = { x: cX - radius * Math.sin(Math.PI/3), y: cY + radius * Math.cos(Math.PI/3) };
@@ -487,7 +513,8 @@ gCtx.fillText('Я', -4, -radius + 14);
             renderLockState();
         }
 
-        function syncCountdownDays(needRecalc) {
+                function syncCountdownDays(needRecalc) {
+            syncTodayExpenseDate();
             try {
                 let baseDays = localStorage.getItem('nai_fin2_days_base');
                 let startTs = localStorage.getItem('nai_fin2_days_start');
@@ -503,7 +530,8 @@ gCtx.fillText('Я', -4, -radius + 14);
             } catch (e) {}
         }
 
-                function addExpense(amount) {
+        function addExpense(amount) {
+            syncTodayExpenseDate();
             let bInput = document.getElementById('cfgBudget');
             let currentBudget = parseFloat(bInput.value) || 0;
 
@@ -514,8 +542,16 @@ gCtx.fillText('Я', -4, -radius + 14);
 
             let actualSpend = Math.min(amount, currentBudget);
             currentDailyExpense += actualSpend;
+            todayOnlyExpense += actualSpend;
+
             document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
+            document.getElementById('valTodayExpense').innerText = todayOnlyExpense + " руб.";
             bInput.value = currentBudget - actualSpend;
+
+            try {
+                localStorage.setItem('nai_fin2_today_date', getTodayKey());
+                localStorage.setItem('nai_fin2_today_exp', todayOnlyExpense);
+            } catch (e) {}
             
             recalculateAll();
         }
@@ -541,9 +577,11 @@ gCtx.fillText('Я', -4, -radius + 14);
             }
         }
 
-                function resetToCenter() {
+        function resetToCenter() {
             currentDailyExpense = 0;
+            todayOnlyExpense = 0;
             document.getElementById('valExpense').innerText = "0 руб.";
+            document.getElementById('valTodayExpense').innerText = "0 руб.";
             document.getElementById('cfgBudget').value = "15000";
             document.getElementById('cfgDebt').value = "15000";
             document.getElementById('cfgDays').value = "30";
@@ -554,6 +592,8 @@ gCtx.fillText('Я', -4, -radius + 14);
                 localStorage.removeItem('nai_fin2_days_base');
                 localStorage.removeItem('nai_fin2_days_start');
                 localStorage.removeItem('nai_fin2_expense');
+                localStorage.removeItem('nai_fin2_today_exp');
+                localStorage.removeItem('nai_fin2_today_date');
                 localStorage.removeItem('nai_fin2_sma_hist');
                 localStorage.setItem('nai_fin2_days_base', 30);
                 localStorage.setItem('nai_fin2_days_start', Date.now());
@@ -567,6 +607,8 @@ gCtx.fillText('Я', -4, -radius + 14);
                 let sB = localStorage.getItem('nai_fin2_budget');
                 let sD = localStorage.getItem('nai_fin2_debt');
                 let sExp = localStorage.getItem('nai_fin2_expense');
+                let sTodayExp = localStorage.getItem('nai_fin2_today_exp');
+                let sTodayDate = localStorage.getItem('nai_fin2_today_date');
                 let sLock = localStorage.getItem('nai_fin2_locked');
 
                 if (sB !== null) document.getElementById('cfgBudget').value = sB;
@@ -575,6 +617,13 @@ gCtx.fillText('Я', -4, -radius + 14);
                     currentDailyExpense = parseFloat(sExp) || 0;
                     document.getElementById('valExpense').innerText = currentDailyExpense + " руб.";
                 }
+                if (sTodayDate === getTodayKey() && sTodayExp !== null) {
+                    todayOnlyExpense = parseFloat(sTodayExp) || 0;
+                } else {
+                    todayOnlyExpense = 0;
+                }
+                document.getElementById('valTodayExpense').innerText = todayOnlyExpense + " руб.";
+
                 if (sLock === '1') isLocked = true;
 
                 syncCountdownDays(false);
@@ -583,12 +632,14 @@ gCtx.fillText('Я', -4, -radius + 14);
             recalculateAll();
         }
 
-                function exportFinBackup() {
+        function exportFinBackup() {
             const keys = [
                 'nai_fin2_budget', 'nai_fin2_debt', 'nai_fin2_days',
                 'nai_fin2_days_base', 'nai_fin2_days_start',
-                'nai_fin2_expense', 'nai_fin2_sma_hist', 'nai_fin2_locked'
+                'nai_fin2_expense', 'nai_fin2_today_exp', 'nai_fin2_today_date',
+                'nai_fin2_sma_hist', 'nai_fin2_locked'
             ];
+
             let data = { module: 'NAI_FIN_V2', exportedAt: new Date().toISOString(), storage: {} };
             keys.forEach(k => {
                 let v = localStorage.getItem(k);
